@@ -1,57 +1,85 @@
-# Prowl-MCP
+# ProwlKit-MCP
 
-MCP server buat Xcode project introspection — biar Claude bisa baca scheme/target project lo langsung.
+An MCP (Model Context Protocol) server for Xcode project introspection, enabling AI assistants like Claude to read schemes, targets, build projects, and run tests directly from your `.xcodeproj` or `.xcworkspace`.
 
-Bagian dari [ProwlLabs](https://github.com/) tooling ecosystem (bareng ProwlKit).
+Part of the [ProwlLabs](https://github.com/ProwlLabs) tooling ecosystem (alongside ProwlKit).
 
-## Setup
+---
 
-```bash
-cd prowl-mcp
-swift build
-```
+## Features
 
-Kalau ada error di `Package.swift` soal versi SDK, cek release terbaru di
-https://github.com/modelcontextprotocol/swift-sdk/releases dan sesuaikan `from:`.
+- **Project Introspection**: Instantly list all targets, schemes, and configurations.
+- **Build Projects**: Build Xcode projects/workspaces and retrieve structured, readable errors and warnings (file, line, column, message).
+- **Run Tests**: Execute tests for a given scheme on an iOS Simulator destination and get a structured pass/fail summary.
 
-## Jalanin manual (buat debug)
+## Setup & Installation
+
+1. Clone the repository and navigate to the project directory:
+   ```bash
+   git clone https://github.com/ProwlLabs/prowlKit-mcp.git
+   cd prowlKit-mcp
+   ```
+
+2. Build the project:
+   ```bash
+   swift build
+   ```
+
+> [!NOTE]
+> If you encounter an SDK version error in `Package.swift`, check the latest release at [modelcontextprotocol/swift-sdk](https://github.com/modelcontextprotocol/swift-sdk/releases) and adjust the `from:` version accordingly.
+
+## Running Manually (Debugging)
+
+To run the server manually for debugging purposes:
 
 ```bash
 swift run prowl-mcp
 ```
 
-Server ini pakai stdio transport — dia nunggu input JSON-RPC dari stdin, jadi
-kalau dijalanin langsung di terminal keliatannya "hang", itu normal.
+*Note: This server uses `stdio` transport. It listens for JSON-RPC input from `stdin`, so it is normal for the terminal to appear to "hang" when running it directly.*
 
-## Connect ke Claude Desktop
+## Connecting to Claude Desktop
 
-1. Build dulu: `swift build -c release`
-2. Cek path binary: `swift build -c release --show-bin-path`
-3. Buka Claude Desktop → Developer (sidebar) → Edit Config
-4. Tambahin entry ini ke `claude_desktop_config.json`:
+1. Build the release version:
+   ```bash
+   swift build -c release
+   ```
+2. Get the binary path:
+   ```bash
+   swift build -c release --show-bin-path
+   ```
+3. Open Claude Desktop → **Developer** (in the sidebar) → **Edit Config**.
+4. Add the following entry to your `claude_desktop_config.json`:
 
-```json
-{
-  "mcpServers": {
-    "prowl-mcp": {
-      "command": "/absolute/path/to/.build/release/prowl-mcp"
-    }
-  }
-}
-```
+   ```json
+   {
+     "mcpServers": {
+       "prowl-mcp": {
+         "command": "/absolute/path/to/.build/release/prowl-mcp"
+       }
+     }
+   }
+   ```
+   *(Replace `/absolute/path/to` with the actual path obtained from step 2)*
 
-5. Restart Claude Desktop sepenuhnya (quit, bukan cuma close window)
-6. Klik "+" di chat box → Connectors → pastiin "prowl-mcp" muncul dan running
+5. **Completely restart** Claude Desktop (Quit the application, don't just close the window).
+6. Click the **"+"** button in the chat box → **Connectors** → ensure `prowl-mcp` appears and is running.
 
-## Tools yang tersedia
+## Available Tools
 
-- `list_schemes_targets(project_path)` — jalanin `xcodebuild -list -json` dan
-  return scheme/target/configuration project atau workspace.
+- `list_schemes_targets(project_path)`: Runs `xcodebuild -list -json` to return project/workspace schemes, targets, and configurations.
+- `build_project(project_path, scheme, configuration)`: Wraps `xcodebuild build` and parses errors/warnings into structured JSON.
+- `run_tests(project_path, scheme, destination)`: Wraps `xcodebuild test` and parses `.xcresult` files via `xcresulttool`.
 
-## Next steps (roadmap)
+## Roadmap
 
-- `build_project` — wrap `xcodebuild build`, parse error jadi structured JSON
-- `run_tests` — wrap `xcodebuild test`, parse `.xcresult` via `xcresulttool`
-- Git diff/blame tool
-- SwiftLint violations tool# prowlkit-MCP
-# prowl-MCP
+- [x] `build_project` implementation
+- [x] `run_tests` implementation
+- [ ] Git diff/blame tool integration
+- [ ] SwiftLint violations tool
+
+---
+
+<p align="center">
+  Made with ❤️ by <b>Elmee</b> & the <b>ProwlLabs</b> Team.
+</p>
