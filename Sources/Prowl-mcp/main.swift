@@ -10,7 +10,7 @@ import Foundation
 import Logging
 import MCP
 
-let prowlMCPVersion = "0.0.1"
+let prowlMCPVersion = "0.0.2"
 
 if CommandLine.arguments.contains("--version") {
     print("prowl-mcp \(prowlMCPVersion)")

@@ -86,6 +86,8 @@ func runXcodebuildList(projectPath rawPath: String) async throws -> CallTool.Res
 }
 
 func runXcodebuildBuild(
+    server: Server?,
+    progressToken: ProgressToken?,
     projectPath rawPath: String, scheme rawScheme: String, configuration: String?
 ) async throws -> CallTool.Result {
     let projectPath: String
@@ -123,25 +125,66 @@ func runXcodebuildBuild(
     process.standardError = outPipe
 
     do {
-        try await runProcessWithTimeout(process, timeoutSeconds: 300)
+        try process.run()
     } catch {
         return CallTool.Result(
             content: [.text(text: "\(error)", annotations: nil, _meta: nil)], isError: true)
     }
 
-    let outData = outPipe.fileHandleForReading.readDataToEndOfFile()
-    let outString = String(data: outData, encoding: .utf8) ?? ""
-    let succeeded = process.terminationStatus == 0
+    let outputTask = Task {
+        var fullOutput = ""
+        var lineCount = 0
+        if #available(macOS 12.0, *) {
+            do {
+                for try await line in outPipe.fileHandleForReading.bytes.lines {
+                    fullOutput += line + "\n"
+                    lineCount += 1
+                    
+                    if let server = server, let token = progressToken, lineCount % 5 == 0 {
+                        let note = Message<ProgressNotification>(
+                            method: ProgressNotification.name,
+                            params: ProgressNotification.Parameters(
+                                progressToken: token,
+                                progress: Double(lineCount),
+                                total: nil,
+                                message: line
+                            )
+                        )
+                        try? await server.notify(note)
+                    }
+                }
+            } catch {
+                runnerLogger.error("Error reading output stream: \(error)")
+            }
+        } else {
+            let data = outPipe.fileHandleForReading.readDataToEndOfFile()
+            fullOutput = String(data: data, encoding: .utf8) ?? ""
+        }
+        return fullOutput
+    }
 
+    let timeoutTask = Task {
+        try await Task.sleep(nanoseconds: 300 * 1_000_000_000)
+        process.terminate()
+        throw MCPError.internalError("Timeout")
+    }
+
+    let fullOutput = await outputTask.value
+    timeoutTask.cancel()
+    process.waitUntilExit()
+
+    let succeeded = process.terminationStatus == 0
     runnerLogger.info("Build finished: success=\(succeeded)")
 
     return CallTool.Result(
-        content: [.text(text: outString, annotations: nil, _meta: nil)], isError: !succeeded)
+        content: [.text(text: fullOutput, annotations: nil, _meta: nil)], isError: !succeeded)
 }
 
-func runXcodebuildTests(projectPath rawPath: String, scheme rawScheme: String, destination: String?)
-    async throws -> CallTool.Result
-{
+func runXcodebuildTests(
+    server: Server?,
+    progressToken: ProgressToken?,
+    projectPath rawPath: String, scheme rawScheme: String, destination: String?
+) async throws -> CallTool.Result {
     let projectPath: String
     let scheme: String
     do {
@@ -181,12 +224,48 @@ func runXcodebuildTests(projectPath rawPath: String, scheme rawScheme: String, d
     testProcess.standardError = testOutPipe
 
     do {
-        try await runProcessWithTimeout(testProcess, timeoutSeconds: 600)
+        try testProcess.run()
     } catch {
         return CallTool.Result(
             content: [.text(text: "\(error)", annotations: nil, _meta: nil)], isError: true)
     }
-    _ = testOutPipe.fileHandleForReading.readDataToEndOfFile()
+
+    let outputTask = Task {
+        var lineCount = 0
+        if #available(macOS 12.0, *) {
+            do {
+                for try await line in testOutPipe.fileHandleForReading.bytes.lines {
+                    lineCount += 1
+                    if let server = server, let token = progressToken, lineCount % 5 == 0 {
+                        let note = Message<ProgressNotification>(
+                            method: ProgressNotification.name,
+                            params: ProgressNotification.Parameters(
+                                progressToken: token,
+                                progress: Double(lineCount),
+                                total: nil,
+                                message: line
+                            )
+                        )
+                        try? await server.notify(note)
+                    }
+                }
+            } catch {
+                runnerLogger.error("Error reading test output stream: \(error)")
+            }
+        } else {
+            _ = testOutPipe.fileHandleForReading.readDataToEndOfFile()
+        }
+    }
+
+    let timeoutTask = Task {
+        try await Task.sleep(nanoseconds: 600 * 1_000_000_000)
+        testProcess.terminate()
+        throw MCPError.internalError("Timeout")
+    }
+
+    _ = await outputTask.value
+    timeoutTask.cancel()
+    testProcess.waitUntilExit()
 
     let summaryProcess = Process()
     summaryProcess.executableURL = URL(fileURLWithPath: "/usr/bin/xcrun")

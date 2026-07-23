@@ -2,8 +2,8 @@
   "manifest_version": "0.1",
   "name": "prowl-mcp",
   "display_name": "Prowl-MCP",
-  "version": "0.0.1",
-  "description": "Xcode project introspection for Claude — read schemes and targets directly from your .xcodeproj/.xcworkspace",
+  "version": "0.0.2",
+  "description": "Advanced Xcode Integration for AI Agents — zero-config workspace jailing, smart scheme discovery, and live-streaming build/test progress directly to your chat interface.",
   "author": {
     "name": "Elmee",
     "email": "hello@elmee.my",

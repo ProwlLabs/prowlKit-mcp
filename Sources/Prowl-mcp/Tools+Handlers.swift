@@ -43,6 +43,8 @@ func registerToolHandlers(on server: Server) async {
             }
             let configuration = params.arguments?["configuration"]?.stringValue
             return try await runXcodebuildBuild(
+                server: server,
+                progressToken: params._meta?.progressToken,
                 projectPath: projectPath, scheme: scheme, configuration: configuration)
 
         case runTestsTool.name:
@@ -61,6 +63,8 @@ func registerToolHandlers(on server: Server) async {
                 params.arguments?["destination"]?.stringValue
                 ?? envDefault("PROWL_MCP_DEFAULT_DESTINATION")
             return try await runXcodebuildTests(
+                server: server,
+                progressToken: params._meta?.progressToken,
                 projectPath: projectPath, scheme: scheme, destination: destination)
 
         case gitInfoTool.name:

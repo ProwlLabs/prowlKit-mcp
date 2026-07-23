@@ -32,23 +32,48 @@ enum ValidationError: Error, CustomStringConvertible {
 
 actor WorkspaceSandbox {
     static let shared = WorkspaceSandbox()
-    private var allowedRoot: String?
+    private var allowedRoots: Set<String> = []
 
     func registerAndValidate(path: String) throws -> String {
         let standardized = URL(fileURLWithPath: path).standardized.path
 
-        if let root = allowedRoot {
-            guard standardized.hasPrefix(root) else {
-                throw MCPError.invalidParams(
-                    "Security Violation: Path \(standardized) is outside the allowed workspace root (\(root))."
-                )
+        for root in allowedRoots {
+            if standardized.hasPrefix(root) {
+                return standardized
             }
-        } else {
-            let rootDir = URL(fileURLWithPath: standardized).deletingLastPathComponent().path
-            allowedRoot = rootDir
-            logger.info("🔒 Workspace Sandboxed to: \(rootDir)")
         }
-        return standardized
+
+        if let newRoot = findProjectRoot(for: standardized) {
+            allowedRoots.insert(newRoot)
+            logger.info("Added new Workspace Sandbox root: \(newRoot)")
+            return standardized
+        } else {
+            throw MCPError.invalidParams(
+                "Security Violation: Path \(standardized) is not within any registered workspace root. No .xcodeproj or .xcworkspace found in its hierarchy."
+            )
+        }
+    }
+
+    private func findProjectRoot(for path: String) -> String? {
+        let fm = FileManager.default
+        var currentUrl = URL(fileURLWithPath: path)
+        let rootUrl = URL(fileURLWithPath: "/")
+
+        if path.hasSuffix(".xcodeproj") || path.hasSuffix(".xcworkspace") {
+            return currentUrl.deletingLastPathComponent().path
+        }
+
+        while currentUrl.path != rootUrl.path {
+            guard let contents = try? fm.contentsOfDirectory(atPath: currentUrl.path) else { break }
+            let hasProject = contents.contains {
+                $0.hasSuffix(".xcodeproj") || $0.hasSuffix(".xcworkspace")
+            }
+            if hasProject {
+                return currentUrl.path
+            }
+            currentUrl = currentUrl.deletingLastPathComponent()
+        }
+        return nil
     }
 }
 
