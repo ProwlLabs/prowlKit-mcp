@@ -54,3 +54,4 @@ kalau dijalanin langsung di terminal keliatannya "hang", itu normal.
 - `run_tests` — wrap `xcodebuild test`, parse `.xcresult` via `xcresulttool`
 - Git diff/blame tool
 - SwiftLint violations tool# prowlkit-MCP
+# prowl-MCP
