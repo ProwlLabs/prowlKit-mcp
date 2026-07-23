@@ -13,6 +13,7 @@ enum ValidationError: Error, CustomStringConvertible {
     case notAbsolutePath(String)
     case pathNotFound(String)
     case invalidExtension(String)
+    case directoryNotFound(String)
 
     var description: String {
         switch self {
@@ -22,6 +23,8 @@ enum ValidationError: Error, CustomStringConvertible {
             return "No file exists at project_path: \(path)"
         case .invalidExtension(let path):
             return "project_path must end in .xcodeproj or .xcworkspace, got: \(path)"
+        case .directoryNotFound(let path):
+            return "Directory does not exist at path: \(path)"
         }
     }
 }
@@ -47,4 +50,17 @@ func validateScheme(_ scheme: String) throws -> String {
         throw MCPError.invalidParams("Invalid scheme name: \(scheme)")
     }
     return scheme
+}
+
+func validateDirectoryPath(_ path: String) throws -> String {
+    guard path.hasPrefix("/") else {
+        throw ValidationError.notAbsolutePath(path)
+    }
+
+    var isDirectory: ObjCBool = false
+    guard FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory), isDirectory.boolValue else {
+        throw ValidationError.directoryNotFound(path)
+    }
+
+    return path
 }

@@ -70,13 +70,15 @@ swift run prowl-mcp
 - `list_schemes_targets(project_path)`: Runs `xcodebuild -list -json` to return project/workspace schemes, targets, and configurations.
 - `build_project(project_path, scheme, configuration)`: Wraps `xcodebuild build` and parses errors/warnings into structured JSON.
 - `run_tests(project_path, scheme, destination)`: Wraps `xcodebuild test` and parses `.xcresult` files via `xcresulttool`.
+- `git_info(repo_path, action, target_file)`: Runs `git diff` or `git blame` on a repository or specific file.
+- `swiftlint(project_path, target_path)`: Runs `swiftlint lint --reporter json` to check for Swift coding style and convention violations.
 
 ## Roadmap
 
 - [x] `build_project` implementation
 - [x] `run_tests` implementation
-- [ ] Git diff/blame tool integration
-- [ ] SwiftLint violations tool
+- [x] Git diff/blame tool integration
+- [x] SwiftLint violations tool
 
 ---
 

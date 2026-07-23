@@ -63,6 +63,23 @@ func registerToolHandlers(on server: Server) async {
             return try await runXcodebuildTests(
                 projectPath: projectPath, scheme: scheme, destination: destination)
 
+        case gitInfoTool.name:
+            guard let repoPath = params.arguments?["repo_path"]?.stringValue else {
+                throw MCPError.invalidParams("Missing required argument: repo_path")
+            }
+            guard let action = params.arguments?["action"]?.stringValue else {
+                throw MCPError.invalidParams("Missing required argument: action")
+            }
+            let targetFile = params.arguments?["target_file"]?.stringValue
+            return try await runGitInfo(repoPath: repoPath, action: action, targetFile: targetFile)
+
+        case swiftLintTool.name:
+            guard let projectPath = params.arguments?["project_path"]?.stringValue else {
+                throw MCPError.invalidParams("Missing required argument: project_path")
+            }
+            let targetPath = params.arguments?["target_path"]?.stringValue
+            return try await runSwiftLint(projectPath: projectPath, targetPath: targetPath)
+
         default:
             throw MCPError.invalidParams("Unknown tool: \(params.name)")
         }

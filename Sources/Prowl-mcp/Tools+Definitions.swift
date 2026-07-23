@@ -77,4 +77,47 @@ let runTestsTool = Tool(
     ])
 )
 
-let allTools: [Tool] = [listSchemesTool, buildProjectTool, runTestsTool]
+let gitInfoTool = Tool(
+    name: "git_info",
+    description: "Run git diff or git blame on a repository or specific file",
+    inputSchema: .object([
+        "type": .string("object"),
+        "properties": .object([
+            "repo_path": .object([
+                "type": .string("string"),
+                "description": .string("Absolute path to the git repository"),
+            ]),
+            "action": .object([
+                "type": .string("string"),
+                "enum": .array([.string("diff"), .string("blame")]),
+                "description": .string("Git action to perform: 'diff' or 'blame'"),
+            ]),
+            "target_file": .object([
+                "type": .string("string"),
+                "description": .string("Specific file to run action on (optional for diff, required for blame)"),
+            ]),
+        ]),
+        "required": .array([.string("repo_path"), .string("action")]),
+    ])
+)
+
+let swiftLintTool = Tool(
+    name: "swiftlint",
+    description: "Run SwiftLint on a specific path to check for Swift coding style and convention violations",
+    inputSchema: .object([
+        "type": .string("object"),
+        "properties": .object([
+            "project_path": .object([
+                "type": .string("string"),
+                "description": .string("Absolute path to the project root directory"),
+            ]),
+            "target_path": .object([
+                "type": .string("string"),
+                "description": .string("Specific file or directory to lint within the project. If omitted, lints the whole project."),
+            ]),
+        ]),
+        "required": .array([.string("project_path")]),
+    ])
+)
+
+let allTools: [Tool] = [listSchemesTool, buildProjectTool, runTestsTool, gitInfoTool, swiftLintTool]
