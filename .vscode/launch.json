@@ -1,0 +1,22 @@
+{
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:ProwlMCP}",
+            "name": "Debug prowl-mcp",
+            "program": "${workspaceFolder:ProwlMCP}/.build/debug/prowl-mcp",
+            "preLaunchTask": "swift: Build Debug prowl-mcp"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:ProwlMCP}",
+            "name": "Release prowl-mcp",
+            "program": "${workspaceFolder:ProwlMCP}/.build/release/prowl-mcp",
+            "preLaunchTask": "swift: Build Release prowl-mcp"
+        }
+    ]
+}
