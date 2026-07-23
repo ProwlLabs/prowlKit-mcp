@@ -12,11 +12,25 @@ Part of the [ProwlLabs](https://github.com/ProwlLabs) tooling ecosystem (alongsi
 
 ## Features
 
-- **Project Introspection**: Instantly list all targets, schemes, and configurations.
-- **Build Projects**: Build Xcode projects/workspaces and retrieve structured, readable errors and warnings (file, line, column, message).
-- **Run Tests**: Execute tests for a given scheme on an iOS Simulator destination and get a structured pass/fail summary.
+- **Zero-Config Workspace Path Jailing**: Safely exposes Xcode projects to the MCP agent without manual path configurations.
+- **Live Streaming Build Logs**: Stream build output and test progress directly into your Claude chat utilizing MCP's Progress API.
+- **Smart Scheme Discovery**: Instantly list all targets, schemes, and configurations.
+- **Build Projects & Tests**: Build Xcode projects/workspaces and get structured, readable errors and warnings (file, line, column, message) using `xcbeautify`.
+- **SourceKit-LSP Integration**: Retrieve rich Xcode build settings, hover definitions, and compiler flags directly from the Swift Language Server.
 
-## Setup & Installation
+## Installation (Recommended)
+
+ProwlMCP is installed and automatically configured for Claude Desktop via Homebrew:
+
+```bash
+brew install ProwlLabs/prowlKit-mcp/prowl-mcp
+```
+
+*That's it! Homebrew will compile the server and automatically inject the connection settings into your `claude_desktop_config.json`.* 
+
+**Completely Restart Claude Desktop** (Quit the application) to load the new MCP server. You will see `prowl-mcp` tools available in the chat (via the "+" or Tools icon).
+
+## Manual Installation (From Source)
 
 1. Clone the repository and navigate to the project directory:
    ```bash
@@ -26,48 +40,20 @@ Part of the [ProwlLabs](https://github.com/ProwlLabs) tooling ecosystem (alongsi
 
 2. Build the project:
    ```bash
-   swift build
-   ```
-
-> [!NOTE]
-> If you encounter an SDK version error in `Package.swift`, check the latest release at [modelcontextprotocol/swift-sdk](https://github.com/modelcontextprotocol/swift-sdk/releases) and adjust the `from:` version accordingly.
-
-## Running Manually (Debugging)
-
-To run the server manually for debugging purposes:
-
-```bash
-swift run prowl-mcp
-```
-
-*Note: This server uses `stdio` transport. It listens for JSON-RPC input from `stdin`, so it is normal for the terminal to appear to "hang" when running it directly.*
-
-## Connecting to Claude Desktop
-
-1. Build the release version:
-   ```bash
    swift build -c release
    ```
-2. Get the binary path:
-   ```bash
-   swift build -c release --show-bin-path
-   ```
-3. Open Claude Desktop → **Developer** (in the sidebar) → **Edit Config**.
-4. Add the following entry to your `claude_desktop_config.json`:
+
+3. Connect to Claude Desktop by adding this to your `claude_desktop_config.json`:
 
    ```json
    {
      "mcpServers": {
        "prowl-mcp": {
-         "command": "/absolute/path/to/.build/release/prowl-mcp"
+         "command": "/absolute/path/to/prowlKit-mcp/.build/release/prowl-mcp"
        }
      }
    }
    ```
-   *(Replace `/absolute/path/to` with the actual path obtained from step 2)*
-
-5. **Completely restart** Claude Desktop (Quit the application, don't just close the window).
-6. Click the **"+"** button in the chat box → **Connectors** → ensure `prowl-mcp` appears and is running.
 
 ## Available Tools
 
