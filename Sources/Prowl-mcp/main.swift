@@ -1,5 +1,5 @@
 //
-//  Main.swift
+//  main.swift
 //  Prowl-MCP
 //
 //  Created by Elmee on 07/23/26.
@@ -10,6 +10,13 @@ import Foundation
 import Logging
 import MCP
 
+let prowlMCPVersion = "0.0.1"
+
+if CommandLine.arguments.contains("--version") {
+    print("prowl-mcp \(prowlMCPVersion)")
+    exit(0)
+}
+
 LoggingSystem.bootstrap { label in
     var handler = StreamLogHandler.standardError(label: label)
     handler.logLevel = .info
@@ -19,7 +26,7 @@ let logger = Logger(label: "com.prowllabs.prowl-mcp")
 
 let server = Server(
     name: "prowl-mcp",
-    version: "0.0.1",
+    version: prowlMCPVersion,
     capabilities: .init(tools: .init(listChanged: false))
 )
 

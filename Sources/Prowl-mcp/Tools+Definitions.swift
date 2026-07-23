@@ -26,7 +26,7 @@ let listSchemesTool = Tool(
 let buildProjectTool = Tool(
     name: "build_project",
     description:
-        "Build an Xcode project or workspace for a given scheme and return structured errors and warnings (file, line, column, message) instead of raw log output",
+        "Build an Xcode project or workspace for a given scheme and return structured errors and warnings (file, line, column, message) instead of raw log output. If scheme is omitted, falls back to the default_scheme configured in the extension settings.",
     inputSchema: .object([
         "type": .string("object"),
         "properties": .object([
@@ -36,21 +36,23 @@ let buildProjectTool = Tool(
             ]),
             "scheme": .object([
                 "type": .string("string"),
-                "description": .string("Scheme to build"),
+                "description": .string(
+                    "Scheme to build. Optional if a default_scheme is configured in extension settings."
+                ),
             ]),
             "configuration": .object([
                 "type": .string("string"),
                 "description": .string("Build configuration, e.g. Debug-Development. Optional."),
             ]),
         ]),
-        "required": .array([.string("project_path"), .string("scheme")]),
+        "required": .array([.string("project_path")]),
     ])
 )
 
 let runTestsTool = Tool(
     name: "run_tests",
     description:
-        "Run tests for a given scheme on an iOS Simulator destination and return a structured pass/fail summary with failure reasons",
+        "Run tests for a given scheme on an iOS Simulator destination and return a structured pass/fail summary with failure reasons. If scheme or destination are omitted, falls back to the defaults configured in the extension settings.",
     inputSchema: .object([
         "type": .string("object"),
         "properties": .object([
@@ -60,16 +62,18 @@ let runTestsTool = Tool(
             ]),
             "scheme": .object([
                 "type": .string("string"),
-                "description": .string("Scheme to test"),
+                "description": .string(
+                    "Scheme to test. Optional if a default_scheme is configured in extension settings."
+                ),
             ]),
             "destination": .object([
                 "type": .string("string"),
                 "description": .string(
-                    "xcodebuild -destination string, e.g. 'platform=iOS Simulator,name=iPhone 16'. Optional — defaults to iPhone 16 simulator."
+                    "xcodebuild -destination string, e.g. 'platform=iOS Simulator,name=iPhone 16'. Optional — falls back to default_destination config, then iPhone 16 simulator."
                 ),
             ]),
         ]),
-        "required": .array([.string("project_path"), .string("scheme")]),
+        "required": .array([.string("project_path")]),
     ])
 )
 

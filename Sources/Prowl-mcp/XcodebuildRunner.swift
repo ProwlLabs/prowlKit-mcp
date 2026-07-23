@@ -7,15 +7,29 @@
 //
 
 import Foundation
+import Logging
 import MCP
 
-func runXcodebuildList(projectPath: String) async throws -> CallTool.Result {
+private let runnerLogger = Logger(label: "com.prowllabs.prowl-mcp.runner")
+
+func runXcodebuildList(projectPath rawPath: String) async throws -> CallTool.Result {
+    let projectPath: String
+    do {
+        projectPath = try validateProjectPath(rawPath)
+    } catch {
+        return CallTool.Result(
+            content: [.text(text: "\(error)", annotations: nil, _meta: nil)], isError: true)
+    }
+
     let isWorkspace = projectPath.hasSuffix(".xcworkspace")
     let flag = isWorkspace ? "-workspace" : "-project"
+    let arguments = [flag, projectPath, "-list", "-json"]
+
+    runnerLogger.info("Running xcodebuild \(arguments.joined(separator: " "))")
 
     let process = Process()
     process.executableURL = URL(fileURLWithPath: "/usr/bin/xcodebuild")
-    process.arguments = [flag, projectPath, "-list", "-json"]
+    process.arguments = arguments
 
     let outPipe = Pipe()
     let errPipe = Pipe()
@@ -23,25 +37,18 @@ func runXcodebuildList(projectPath: String) async throws -> CallTool.Result {
     process.standardError = errPipe
 
     do {
-        try process.run()
+        try await runProcessWithTimeout(process, timeoutSeconds: 60)
     } catch {
         return CallTool.Result(
-            content: [
-                .text(
-                    text: "Failed to launch xcodebuild: \(error.localizedDescription)",
-                    annotations: nil, _meta: nil)
-            ],
-            isError: true
-        )
+            content: [.text(text: "\(error)", annotations: nil, _meta: nil)], isError: true)
     }
-
-    process.waitUntilExit()
 
     let outData = outPipe.fileHandleForReading.readDataToEndOfFile()
     let errData = errPipe.fileHandleForReading.readDataToEndOfFile()
 
     if process.terminationStatus != 0 {
         let errString = String(data: errData, encoding: .utf8) ?? "Unknown error"
+        runnerLogger.error("xcodebuild -list failed: \(errString)")
         return CallTool.Result(
             content: [
                 .text(text: "xcodebuild failed:\n\(errString)", annotations: nil, _meta: nil)
@@ -54,9 +61,19 @@ func runXcodebuildList(projectPath: String) async throws -> CallTool.Result {
     return CallTool.Result(content: [.text(text: outString, annotations: nil, _meta: nil)])
 }
 
-func runXcodebuildBuild(projectPath: String, scheme: String, configuration: String?) async throws
-    -> CallTool.Result
-{
+func runXcodebuildBuild(
+    projectPath rawPath: String, scheme rawScheme: String, configuration: String?
+) async throws -> CallTool.Result {
+    let projectPath: String
+    let scheme: String
+    do {
+        projectPath = try validateProjectPath(rawPath)
+        scheme = try validateScheme(rawScheme)
+    } catch {
+        return CallTool.Result(
+            content: [.text(text: "\(error)", annotations: nil, _meta: nil)], isError: true)
+    }
+
     let isWorkspace = projectPath.hasSuffix(".xcworkspace")
     let flag = isWorkspace ? "-workspace" : "-project"
 
@@ -64,6 +81,8 @@ func runXcodebuildBuild(projectPath: String, scheme: String, configuration: Stri
     if let configuration {
         arguments += ["-configuration", configuration]
     }
+
+    runnerLogger.info("Running xcodebuild \(arguments.joined(separator: " "))")
 
     let process = Process()
     process.executableURL = URL(fileURLWithPath: "/usr/bin/xcodebuild")
@@ -74,19 +93,11 @@ func runXcodebuildBuild(projectPath: String, scheme: String, configuration: Stri
     process.standardError = outPipe
 
     do {
-        try process.run()
+        try await runProcessWithTimeout(process, timeoutSeconds: 300)
     } catch {
         return CallTool.Result(
-            content: [
-                .text(
-                    text: "Failed to launch xcodebuild: \(error.localizedDescription)",
-                    annotations: nil, _meta: nil)
-            ],
-            isError: true
-        )
+            content: [.text(text: "\(error)", annotations: nil, _meta: nil)], isError: true)
     }
-
-    process.waitUntilExit()
 
     let outData = outPipe.fileHandleForReading.readDataToEndOfFile()
     let outString = String(data: outData, encoding: .utf8) ?? ""
@@ -95,6 +106,9 @@ func runXcodebuildBuild(projectPath: String, scheme: String, configuration: Stri
     let succeeded = process.terminationStatus == 0
     let errorCount = diagnostics.filter { $0.severity == "error" }.count
     let warningCount = diagnostics.filter { $0.severity == "warning" }.count
+
+    runnerLogger.info(
+        "Build finished: success=\(succeeded) errors=\(errorCount) warnings=\(warningCount)")
 
     let resultValue: Value = .object([
         "success": .bool(succeeded),
@@ -108,9 +122,19 @@ func runXcodebuildBuild(projectPath: String, scheme: String, configuration: Stri
         content: [.text(text: jsonString, annotations: nil, _meta: nil)], isError: !succeeded)
 }
 
-func runXcodebuildTests(projectPath: String, scheme: String, destination: String?) async throws
-    -> CallTool.Result
+func runXcodebuildTests(projectPath rawPath: String, scheme rawScheme: String, destination: String?)
+    async throws -> CallTool.Result
 {
+    let projectPath: String
+    let scheme: String
+    do {
+        projectPath = try validateProjectPath(rawPath)
+        scheme = try validateScheme(rawScheme)
+    } catch {
+        return CallTool.Result(
+            content: [.text(text: "\(error)", annotations: nil, _meta: nil)], isError: true)
+    }
+
     let isWorkspace = projectPath.hasSuffix(".xcworkspace")
     let flag = isWorkspace ? "-workspace" : "-project"
 
@@ -129,6 +153,8 @@ func runXcodebuildTests(projectPath: String, scheme: String, destination: String
         "test",
     ]
 
+    runnerLogger.info("Running xcodebuild \(arguments.joined(separator: " "))")
+
     let testProcess = Process()
     testProcess.executableURL = URL(fileURLWithPath: "/usr/bin/xcodebuild")
     testProcess.arguments = arguments
@@ -138,19 +164,11 @@ func runXcodebuildTests(projectPath: String, scheme: String, destination: String
     testProcess.standardError = testOutPipe
 
     do {
-        try testProcess.run()
+        try await runProcessWithTimeout(testProcess, timeoutSeconds: 600)
     } catch {
         return CallTool.Result(
-            content: [
-                .text(
-                    text: "Failed to launch xcodebuild: \(error.localizedDescription)",
-                    annotations: nil, _meta: nil)
-            ],
-            isError: true
-        )
+            content: [.text(text: "\(error)", annotations: nil, _meta: nil)], isError: true)
     }
-    testProcess.waitUntilExit()
-
     _ = testOutPipe.fileHandleForReading.readDataToEndOfFile()
 
     let summaryProcess = Process()
@@ -167,26 +185,26 @@ func runXcodebuildTests(projectPath: String, scheme: String, destination: String
     summaryProcess.standardError = summaryErrPipe
 
     do {
-        try summaryProcess.run()
+        try await runProcessWithTimeout(summaryProcess, timeoutSeconds: 30)
     } catch {
         return CallTool.Result(
             content: [
                 .text(
                     text:
-                        "Tests finished (xcodebuild exit code \(testProcess.terminationStatus)) but failed to read result bundle: \(error.localizedDescription)",
+                        "Tests finished (xcodebuild exit code \(testProcess.terminationStatus)) but failed to read result bundle: \(error)",
                     annotations: nil, _meta: nil
                 )
             ],
             isError: true
         )
     }
-    summaryProcess.waitUntilExit()
 
     let summaryData = summaryOutPipe.fileHandleForReading.readDataToEndOfFile()
     let summaryErrData = summaryErrPipe.fileHandleForReading.readDataToEndOfFile()
 
     if summaryProcess.terminationStatus != 0 {
         let errString = String(data: summaryErrData, encoding: .utf8) ?? "Unknown error"
+        runnerLogger.error("xcresulttool failed: \(errString)")
         return CallTool.Result(
             content: [
                 .text(

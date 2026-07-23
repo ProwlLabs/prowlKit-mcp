@@ -1,0 +1,37 @@
+{
+  "manifest_version": "0.1",
+  "name": "prowl-mcp",
+  "display_name": "Prowl-MCP",
+  "version": "0.0.1",
+  "description": "Xcode project introspection for Claude — read schemes and targets directly from your .xcodeproj/.xcworkspace",
+  "author": {
+    "name": "Elmee",
+    "email": "hello@elmee.my",
+    "url": "https://elmee.my"
+  },
+  "server": {
+    "type": "binary",
+    "entry_point": "prowl-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/prowl-mcp",
+      "env": {
+        "PROWL_MCP_DEFAULT_SCHEME": "${user_config.default_scheme}",
+        "PROWL_MCP_DEFAULT_DESTINATION": "${user_config.default_destination}"
+      }
+    }
+  },
+  "user_config": {
+    "default_scheme": {
+      "type": "string",
+      "title": "Default scheme",
+      "description": "Scheme to use for build_project/run_tests when you don't specify one in the prompt (e.g. Soothesenses-Development). Optional.",
+      "required": false
+    },
+    "default_destination": {
+      "type": "string",
+      "title": "Default test destination",
+      "description": "xcodebuild -destination string used by run_tests when none is given (e.g. platform=iOS Simulator,name=iPhone 16). Optional — falls back to iPhone 16 simulator.",
+      "required": false
+    }
+  }
+}
