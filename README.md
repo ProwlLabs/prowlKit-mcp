@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="logo.png" width="250" alt="ProwlKit Logo">
+</p>
+
 # ProwlKit-MCP
 
 An MCP (Model Context Protocol) server for Xcode project introspection, enabling AI assistants like Claude to read schemes, targets, build projects, and run tests directly from your `.xcodeproj` or `.xcworkspace`.
