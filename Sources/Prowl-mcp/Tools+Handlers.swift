@@ -80,6 +80,24 @@ func registerToolHandlers(on server: Server) async {
             let targetPath = params.arguments?["target_path"]?.stringValue
             return try await runSwiftLint(projectPath: projectPath, targetPath: targetPath)
 
+        case sourceKitLSPTool.name:
+            guard let projectPath = params.arguments?["project_path"]?.stringValue else {
+                throw MCPError.invalidParams("Missing required argument: project_path")
+            }
+            guard let action = params.arguments?["action"]?.stringValue else {
+                throw MCPError.invalidParams("Missing required argument: action")
+            }
+            guard let file = params.arguments?["file"]?.stringValue else {
+                throw MCPError.invalidParams("Missing required argument: file")
+            }
+            guard let line = params.arguments?["line"]?.intValue ?? params.arguments?["line"]?.intValue ?? Int(params.arguments?["line"]?.stringValue ?? "") else {
+                throw MCPError.invalidParams("Missing required argument: line")
+            }
+            guard let character = params.arguments?["character"]?.intValue ?? params.arguments?["character"]?.intValue ?? Int(params.arguments?["character"]?.stringValue ?? "") else {
+                throw MCPError.invalidParams("Missing required argument: character")
+            }
+            return try await runSourceKitLSPQuery(projectPath: projectPath, action: action, file: file, line: line, character: character)
+
         default:
             throw MCPError.invalidParams("Unknown tool: \(params.name)")
         }

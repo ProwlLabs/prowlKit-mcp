@@ -12,13 +12,36 @@ import MCP
 
 private let runnerLogger = Logger(label: "com.prowllabs.prowl-mcp.runner")
 
+private func findXcbeautify() -> URL? {
+    let process = Process()
+    process.executableURL = URL(fileURLWithPath: "/usr/bin/which")
+    process.arguments = ["xcbeautify"]
+    let pipe = Pipe()
+    process.standardOutput = pipe
+    try? process.run()
+    process.waitUntilExit()
+    if process.terminationStatus == 0 {
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        let path = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let path = path, !path.isEmpty {
+            return URL(fileURLWithPath: path)
+        }
+    }
+    return nil
+}
+
 func runXcodebuildList(projectPath rawPath: String) async throws -> CallTool.Result {
     let projectPath: String
     do {
-        projectPath = try validateProjectPath(rawPath)
+        projectPath = try await validateProjectPath(rawPath)
     } catch {
         return CallTool.Result(
             content: [.text(text: "\(error)", annotations: nil, _meta: nil)], isError: true)
+    }
+
+    if let cachedOutput = await XcodebuildCache.shared.getCachedList(for: projectPath) {
+        runnerLogger.info("Returning cached xcodebuild -list for \(projectPath)")
+        return CallTool.Result(content: [.text(text: cachedOutput, annotations: nil, _meta: nil)])
     }
 
     let isWorkspace = projectPath.hasSuffix(".xcworkspace")
@@ -58,6 +81,7 @@ func runXcodebuildList(projectPath rawPath: String) async throws -> CallTool.Res
     }
 
     let outString = String(data: outData, encoding: .utf8) ?? "{}"
+    await XcodebuildCache.shared.setCachedList(for: projectPath, output: outString)
     return CallTool.Result(content: [.text(text: outString, annotations: nil, _meta: nil)])
 }
 
@@ -67,7 +91,7 @@ func runXcodebuildBuild(
     let projectPath: String
     let scheme: String
     do {
-        projectPath = try validateProjectPath(rawPath)
+        projectPath = try await validateProjectPath(rawPath)
         scheme = try validateScheme(rawScheme)
     } catch {
         return CallTool.Result(
@@ -82,11 +106,17 @@ func runXcodebuildBuild(
         arguments += ["-configuration", configuration]
     }
 
-    runnerLogger.info("Running xcodebuild \(arguments.joined(separator: " "))")
-
     let process = Process()
-    process.executableURL = URL(fileURLWithPath: "/usr/bin/xcodebuild")
-    process.arguments = arguments
+    if let xcbeautify = findXcbeautify() {
+        process.executableURL = URL(fileURLWithPath: "/bin/bash")
+        let argsString = arguments.map { "\"\($0)\"" }.joined(separator: " ")
+        process.arguments = ["-c", "set -o pipefail && /usr/bin/xcodebuild \(argsString) | \"\(xcbeautify.path)\""]
+        runnerLogger.info("Running xcodebuild \(arguments.joined(separator: " ")) | xcbeautify")
+    } else {
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/xcodebuild")
+        process.arguments = arguments
+        runnerLogger.info("Running xcodebuild \(arguments.joined(separator: " "))")
+    }
 
     let outPipe = Pipe()
     process.standardOutput = outPipe
@@ -101,25 +131,12 @@ func runXcodebuildBuild(
 
     let outData = outPipe.fileHandleForReading.readDataToEndOfFile()
     let outString = String(data: outData, encoding: .utf8) ?? ""
-
-    let diagnostics = parseXcodebuildDiagnostics(from: outString)
     let succeeded = process.terminationStatus == 0
-    let errorCount = diagnostics.filter { $0.severity == "error" }.count
-    let warningCount = diagnostics.filter { $0.severity == "warning" }.count
 
-    runnerLogger.info(
-        "Build finished: success=\(succeeded) errors=\(errorCount) warnings=\(warningCount)")
+    runnerLogger.info("Build finished: success=\(succeeded)")
 
-    let resultValue: Value = .object([
-        "success": .bool(succeeded),
-        "errorCount": .int(errorCount),
-        "warningCount": .int(warningCount),
-        "diagnostics": .array(diagnostics.map { $0.toValue() }),
-    ])
-
-    let jsonString = (try? encodeValueToJSONString(resultValue)) ?? "{}"
     return CallTool.Result(
-        content: [.text(text: jsonString, annotations: nil, _meta: nil)], isError: !succeeded)
+        content: [.text(text: outString, annotations: nil, _meta: nil)], isError: !succeeded)
 }
 
 func runXcodebuildTests(projectPath rawPath: String, scheme rawScheme: String, destination: String?)
@@ -128,7 +145,7 @@ func runXcodebuildTests(projectPath rawPath: String, scheme rawScheme: String, d
     let projectPath: String
     let scheme: String
     do {
-        projectPath = try validateProjectPath(rawPath)
+        projectPath = try await validateProjectPath(rawPath)
         scheme = try validateScheme(rawScheme)
     } catch {
         return CallTool.Result(

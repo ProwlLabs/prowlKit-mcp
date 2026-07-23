@@ -26,7 +26,7 @@ let listSchemesTool = Tool(
 let buildProjectTool = Tool(
     name: "build_project",
     description:
-        "Build an Xcode project or workspace for a given scheme and return structured errors and warnings (file, line, column, message) instead of raw log output. If scheme is omitted, falls back to the default_scheme configured in the extension settings.",
+        "Build an Xcode project or workspace for a given scheme and return a concise, formatted summary of errors and warnings (using xcbeautify if available). If scheme is omitted, falls back to the default_scheme configured in the extension settings.",
     inputSchema: .object([
         "type": .string("object"),
         "properties": .object([
@@ -120,4 +120,36 @@ let swiftLintTool = Tool(
     ])
 )
 
-let allTools: [Tool] = [listSchemesTool, buildProjectTool, runTestsTool, gitInfoTool, swiftLintTool]
+let sourceKitLSPTool = Tool(
+    name: "sourcekit_lsp_query",
+    description: "Run SourceKit-LSP to query symbols, find definitions, or get hover documentation. Action can be 'definition', 'hover', or 'references'.",
+    inputSchema: .object([
+        "type": .string("object"),
+        "properties": .object([
+            "project_path": .object([
+                "type": .string("string"),
+                "description": .string("Absolute path to the project root directory"),
+            ]),
+            "action": .object([
+                "type": .string("string"),
+                "enum": .array([.string("definition"), .string("hover"), .string("references")]),
+                "description": .string("LSP action to perform"),
+            ]),
+            "file": .object([
+                "type": .string("string"),
+                "description": .string("Absolute path to the Swift file"),
+            ]),
+            "line": .object([
+                "type": .string("integer"),
+                "description": .string("0-based line number"),
+            ]),
+            "character": .object([
+                "type": .string("integer"),
+                "description": .string("0-based character/column number"),
+            ]),
+        ]),
+        "required": .array([.string("project_path"), .string("action"), .string("file"), .string("line"), .string("character")]),
+    ])
+)
+
+let allTools: [Tool] = [listSchemesTool, buildProjectTool, runTestsTool, gitInfoTool, swiftLintTool, sourceKitLSPTool]

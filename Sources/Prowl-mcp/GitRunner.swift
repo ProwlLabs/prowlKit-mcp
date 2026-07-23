@@ -17,7 +17,7 @@ func runGitInfo(repoPath rawPath: String, action rawAction: String, targetFile: 
 {
     let repoPath: String
     do {
-        repoPath = try validateDirectoryPath(rawPath)
+        repoPath = try await validateDirectoryPath(rawPath)
     } catch {
         return CallTool.Result(
             content: [.text(text: "\(error)", annotations: nil, _meta: nil)], isError: true)

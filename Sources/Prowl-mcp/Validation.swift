@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import Logging
 import MCP
 
 enum ValidationError: Error, CustomStringConvertible {
@@ -29,7 +30,29 @@ enum ValidationError: Error, CustomStringConvertible {
     }
 }
 
-func validateProjectPath(_ path: String) throws -> String {
+actor WorkspaceSandbox {
+    static let shared = WorkspaceSandbox()
+    private var allowedRoot: String?
+
+    func registerAndValidate(path: String) throws -> String {
+        let standardized = URL(fileURLWithPath: path).standardized.path
+
+        if let root = allowedRoot {
+            guard standardized.hasPrefix(root) else {
+                throw MCPError.invalidParams(
+                    "Security Violation: Path \(standardized) is outside the allowed workspace root (\(root))."
+                )
+            }
+        } else {
+            let rootDir = URL(fileURLWithPath: standardized).deletingLastPathComponent().path
+            allowedRoot = rootDir
+            logger.info("🔒 Workspace Sandboxed to: \(rootDir)")
+        }
+        return standardized
+    }
+}
+
+func validateProjectPath(_ path: String) async throws -> String {
     guard path.hasPrefix("/") else {
         throw ValidationError.notAbsolutePath(path)
     }
@@ -42,7 +65,7 @@ func validateProjectPath(_ path: String) throws -> String {
         throw ValidationError.pathNotFound(path)
     }
 
-    return path
+    return try await WorkspaceSandbox.shared.registerAndValidate(path: path)
 }
 
 func validateScheme(_ scheme: String) throws -> String {
@@ -52,15 +75,17 @@ func validateScheme(_ scheme: String) throws -> String {
     return scheme
 }
 
-func validateDirectoryPath(_ path: String) throws -> String {
+func validateDirectoryPath(_ path: String) async throws -> String {
     guard path.hasPrefix("/") else {
         throw ValidationError.notAbsolutePath(path)
     }
 
     var isDirectory: ObjCBool = false
-    guard FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory), isDirectory.boolValue else {
+    guard FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory),
+        isDirectory.boolValue
+    else {
         throw ValidationError.directoryNotFound(path)
     }
 
-    return path
+    return try await WorkspaceSandbox.shared.registerAndValidate(path: path)
 }

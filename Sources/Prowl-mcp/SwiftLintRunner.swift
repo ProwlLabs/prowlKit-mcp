@@ -16,7 +16,7 @@ func runSwiftLint(projectPath rawPath: String, targetPath: String?) async throws
 {
     let projectPath: String
     do {
-        projectPath = try validateDirectoryPath(rawPath)
+        projectPath = try await validateDirectoryPath(rawPath)
     } catch {
         return CallTool.Result(
             content: [.text(text: "\(error)", annotations: nil, _meta: nil)], isError: true)
